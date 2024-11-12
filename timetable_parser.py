@@ -50,4 +50,4 @@ class TimetablePDFParser:
 if __name__ == '__main__':
     parser = TimetablePDFParser()
     df = parser.parse_all_pdfs(["timetables/3-kurs-strf-ibio-ekf-got-14.10.pdf"])
-    df.to_csv('timetable_data.csv')
+    df.to_csv('timetable_data.csv', index=False)
