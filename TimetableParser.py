@@ -1,12 +1,17 @@
 import pdfplumber
 import pandas as pd
 
+
 class TimetablePDFParser:
-    def __init__(self):
-        ...
+    def parse_all_pdfs(self, filepaths: list[str]) -> pd.DataFrame:
+        df = pd.DataFrame(columns=['Группа', 'День недели', 'Время', 'Занятие'])
+        for filepath in filepaths:
+            new_data = self.parse_pdf(filepath)
+            df = pd.concat([df, new_data])
+        return df
 
-    def parse_pdf(self, filepath: str):
-
+    @staticmethod
+    def parse_pdf(filepath: str) -> pd.DataFrame:
         # Открываем файл расписания
         with pdfplumber.open(filepath) as pdf:
             first_page = pdf.pages[0]  # Указываем страницу с расписанием
@@ -24,19 +29,25 @@ class TimetablePDFParser:
         df['День недели'] = df['День недели'].apply(lambda x: x.replace('\n', '').capitalize() if x else None)
 
         df['День недели'] = df['День недели'].ffill()
-        print(df[['День недели', 'Время']])
+
+        result_df = pd.DataFrame(columns=['Группа', 'День недели', 'Время', 'Занятие'])
 
         # Парсим все пары отдельно
         for group in df.columns[2:]:
-            print('-'*40)
-            print(group)
-            for day, time, lesson in zip(df['День недели'], df['Время'], df[group]):
+            for week_day, time, lesson in zip(df['День недели'], df['Время'], df[group]):
                 if not lesson:
                     lesson = None
-                print(lesson)
+                result_df.loc[len(result_df)] = {
+                    'Группа': group,
+                    'День недели': week_day,
+                    'Время': time,
+                    'Занятие': lesson,
+                }
 
+        return result_df
 
 
 if __name__ == '__main__':
     parser = TimetablePDFParser()
-    parser.parse_pdf("timetables/3-kurs-strf-ibio-ekf-got-14.10.pdf")
+    df = parser.parse_all_pdfs(["timetables/3-kurs-strf-ibio-ekf-got-14.10.pdf"])
+    df.to_csv('timetable_data.csv')
