@@ -19,7 +19,7 @@ def list_files_in_directory(directory_path):
     return file_paths
 
 
-def parse_timetables(timetable_dir, out_file):
+def parse_timetables(timetable_dir=TIMETABLE_DIR, out_file=OUT_FILE):
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
     df = parser.parse_all_pdfs(filepaths=files)  # Парсим их в pandas.DataFrame

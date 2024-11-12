@@ -19,19 +19,19 @@ class CSVScheduleLoader:
         self.df = self.read_schedule_file()
 
     @staticmethod
-    def parse_time_interval(time_str):
+    def _parse_time_interval(time_str):
         start_time, end_time = time_str.split('-')
         start_datetime = datetime.strptime(start_time, '%H.%M')
         end_datetime = datetime.strptime(end_time, '%H.%M')
         return start_datetime, end_datetime
 
     @staticmethod
-    def make_time_interval(begin_time: datetime, end_time: datetime):
+    def _make_time_interval(begin_time: datetime, end_time: datetime):
         return datetime.strftime(begin_time, '%H.%M')+'-'+datetime.strftime(end_time, '%H.%M')
 
     def read_schedule_file(self):
         df = pd.read_csv(self.fp)
-        df['Время начала'], df['Время окончания'] = zip(*df['Время'].apply(self.parse_time_interval))
+        df['Время начала'], df['Время окончания'] = zip(*df['Время'].apply(self._parse_time_interval))
         return df
 
     def get_daily_schedule(self, group: str, week_day: str) -> list[Lesson]:
@@ -45,7 +45,7 @@ class CSVScheduleLoader:
         for _, row in filtered_df.iterrows():
             lesson = Lesson(
                 week_day=row['День недели'],
-                time=self.make_time_interval(row['Время начала'], row['Время окончания']),
+                time=self._make_time_interval(row['Время начала'], row['Время окончания']),
                 name=row['Занятие']
             )
             # Добавляем занятие в список для соответствующего дня недели
