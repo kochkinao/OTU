@@ -6,8 +6,11 @@ from aiogram import F
 import asyncio
 import sqlalchemy
 import os
+#.env
 from dotenv import load_dotenv
-
+#MarkdownV2 чтоб красиво было
+#дуркакод re для escape_md
+import re
 import parse_timetables
 from db_manager import ScheduleLoader, Lesson
 load_dotenv()
@@ -20,12 +23,27 @@ dp = Dispatcher()
 # loader = ScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
 loader = ScheduleLoader(db_url=os.getenv("DB_URL"))
 
+
+
+
+# Функция для экранирования символов MarkdownV2
+def escape_md(text: str) -> str:
+    return re.sub(r'([\\*_`\[\]()~>#+\-=|{}.!])', r'\\\1', text)
+
 # Функция для корректного форматирования расписания
 def format_daily_schedule(schedule: list[Lesson]):
     print(schedule)
     formatted_schedule = []
     for lesson in schedule:
-        formatted_schedule.append(f"\t{lesson.time}: {lesson.name}")
+        # чек на пустое
+        if lesson.name == "Военная подготовка\n(факультативные дисциплины)":
+            lesson_name = escape_md(lesson.name)
+            formatted_schedule.append(f"\n**{lesson_name}**")
+        elif lesson.name is not None:
+                # Убираем "_____________________" и экранируем специальные символы для Markdown
+                lesson_name = escape_md(lesson.name.replace("_____________________", ""))
+                lesson_time = escape_md(lesson.time)
+                formatted_schedule.append(f"*{lesson_time}:*\n```{lesson_name}```")
     return "\n".join(formatted_schedule)
 
 def format_schedule(schedule: dict[str,list[Lesson]]):
@@ -129,8 +147,6 @@ async def send_welcome(message: Message):
     global current_step
     current_step = "start"
     await message.answer("Привет! Нажми 'Выбери группу', чтобы продолжить:", reply_markup=start_keyboard)
-
-
 # Обработчик нажатия на кнопку "Выбери группу"
 @dp.message(F.text == "Выбери группу")
 async def choose_group(message: Message):
@@ -177,7 +193,7 @@ async def handle_day_selection(message: Message):
     day = message.text
     lessons = loader.get_daily_schedule(selected_group, day)
     schedule = format_daily_schedule(lessons)
-    await message.answer(schedule)
+    await message.answer(schedule, parse_mode="MarkdownV2")
 
 
 # Обработчик для показа полного расписания
@@ -186,7 +202,7 @@ async def handle_full_week(message: Message):
     global selected_group
     # Показать расписание на всю неделю
     full_schedule = extract_week_schedule(selected_group)
-    await message.answer(full_schedule)
+    await message.answer(full_schedule, parse_mode="MarkdownV2")
 
 # Обработчик кнопки "Назад" для возврата на предыдущие шаги
 @dp.message(F.text == "Назад")
