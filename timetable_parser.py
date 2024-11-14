@@ -4,7 +4,7 @@ import pandas as pd
 
 class TimetablePDFParser:
     def parse_all_pdfs(self, filepaths: list[str]) -> pd.DataFrame:
-        df = pd.DataFrame(columns=['group', 'week_day', 'time', 'lesson'])
+        df = pd.DataFrame(columns=['group', 'week_day', 'start_time', 'end_time', 'lesson'])
         for filepath in filepaths:
             new_data = self.parse_pdf(filepath)
             df = pd.concat([df, new_data])
@@ -40,10 +40,11 @@ class TimetablePDFParser:
                 result_df.loc[len(result_df)] = {
                     'group': group,
                     'week_day': week_day,
-                    'time': time,
+                    'time': time.replace('.', ':'),
                     'lesson': lesson,
                 }
         result_df[['start_time', 'end_time']] = result_df['time'].str.split('-', expand=True)
+        result_df = result_df.drop(columns='time')
 
         return result_df
 
