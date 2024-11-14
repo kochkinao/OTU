@@ -8,8 +8,7 @@ import sqlalchemy
 import os
 from dotenv import load_dotenv
 
-import csv_manager
-from csv_manager import Lesson
+from db_manager import ScheduleLoader, Lesson
 load_dotenv()
 
 
@@ -17,38 +16,36 @@ load_dotenv()
 bot = Bot(token=os.getenv("TG_API_KEY"))
 dp = Dispatcher()
 
-
+# loader = ScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
+loader = ScheduleLoader(db_url=os.getenv("DB_URL"))
 
 # Функция для корректного форматирования расписания
-def format_schedule(schedule_dict):
-    formatted_schedule = [csv_manager.Lesson]
-    for day, classes in schedule_dict.items():
-        formatted_schedule.append(f"\n{day}:")
-        for time, subject in classes.items():
-            formatted_schedule.append(f"  {time}: {subject}")
+def format_daily_schedule(schedule: list[Lesson]):
+    formatted_schedule = []
+    for lesson in schedule:
+        formatted_schedule.append(f"\t{time}: {subject}")
     return "\n".join(formatted_schedule)
 
+def format_schedule(schedule: dict[str,list[Lesson]]):
+    formatted_schedule = []
+    for day, lesson in schedule:
+        formatted_schedule.append(f"\n{day}:")
+        formatted_schedule.append(format_daily_schedule(lesson))
+    return "\n".join(formatted_schedule)
 
 # Функция для извлечения расписания для конкретного дня
-def extract_day_schedule(df, group_name, week_type, day):
-    group_column = df.columns[df.iloc[0] == group_name].tolist()
-
+def extract_day_schedule(group_name, day):
     if not group_column:
         return f"Группа {group_name} не найдена в расписании."
-
     group_column = group_column[0]
-
     # Колонка с временем
     time_column = df.columns[1]
-
     # Словарь для хранения расписания на день
     day_schedule = {}
-
     for index, row in df.iterrows():
         current_day = row[df.columns[0]]
         time = row[time_column]
         subject = row[group_column]
-
         # Проверка на корректность дня и недели
         if isinstance(current_day, str) and current_day.strip() == day:
             print(f"Проверка предмета: {subject}, для дня: {day}, время: {time}")  # Отладка
@@ -199,11 +196,6 @@ async def handle_full_week(message: Message):
 
 
 # Обработчик загрузки Excel-файла
-async def load_schedule_data():
-    global df
-    file_path = 'pdf/парс.xlsx'  # Укажи путь к файлу
-    df = load_excel(file_path)
-    print("Данные расписания загружены.")
 
 
 # Обработчик кнопки "Назад" для возврата на предыдущие шаги
@@ -221,11 +213,11 @@ async def go_back(message: Message):
         current_step = "start"
         await message.answer("Привет! Нажми 'Выбери группу', чтобы продолжить:", reply_markup=start_keyboard)
 
-        # # Запуск бота
-        # async def main():
-        #     # Загружаем данные расписания при старте
-        #     await load_schedule_data()
-        #     await dp.start_polling(bot)
-        #
-        # if name == "__main__":
-        #     asyncio.run(main())
+        # Запуск бота
+async def main():
+    # Загружаем данные расписания при старте
+    await load_schedule_data()
+    await dp.start_polling(bot)
+
+if __name__ == '__main__':
+    asyncio.run(main())

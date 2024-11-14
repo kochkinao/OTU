@@ -14,7 +14,7 @@ class Lesson(NamedTuple):
     name: str
 
 
-class PDFScheduleLoader:
+class ScheduleLoader:
     def __init__(self, db_url):
         self.db_engine = sqlalchemy.create_engine(db_url)
         self.df = self.read_schedule_file()
@@ -61,7 +61,7 @@ class PDFScheduleLoader:
 
 
 if __name__ == '__main__':
-    loader = PDFScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
+    loader = ScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
 
     daily_lessons = loader.get_daily_schedule(group='АГС-22-1', week_day='Понедельник')
     pprint.pp(daily_lessons)
