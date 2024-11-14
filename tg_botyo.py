@@ -8,6 +8,7 @@ import sqlalchemy
 import os
 from dotenv import load_dotenv
 
+import parse_timetables
 from db_manager import ScheduleLoader, Lesson
 load_dotenv()
 
@@ -21,14 +22,15 @@ loader = ScheduleLoader(db_url=os.getenv("DB_URL"))
 
 # Функция для корректного форматирования расписания
 def format_daily_schedule(schedule: list[Lesson]):
+    print(schedule)
     formatted_schedule = []
     for lesson in schedule:
-        formatted_schedule.append(f"\t{time}: {subject}")
+        formatted_schedule.append(f"\t{lesson.time}: {lesson.name}")
     return "\n".join(formatted_schedule)
 
 def format_schedule(schedule: dict[str,list[Lesson]]):
     formatted_schedule = []
-    for day, lesson in schedule:
+    for day, lesson in schedule.items():
         formatted_schedule.append(f"\n{day}:")
         formatted_schedule.append(format_daily_schedule(lesson))
     return "\n".join(formatted_schedule)
@@ -66,15 +68,9 @@ def extract_day_schedule(group_name, day):
 
 
 # Функция для извлечения полного расписания для недели
-def extract_week_schedule(df, group_name, week_type):
-    days_of_week = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница"]
-    weekly_schedule = {}
-
-    for day in days_of_week:
-        schedule = extract_day_schedule(df, group_name, week_type, day)
-        weekly_schedule[day] = schedule
-
-    return "\n".join(weekly_schedule.values())
+def extract_week_schedule(group_name):
+    group_schedule = loader.get_weekly_schedule(group_name)
+    return format_schedule(group_schedule)
 
 
 # Основные клавиши
@@ -177,26 +173,20 @@ async def handle_week_type(message: Message):
 # Обработчик для выбора дня недели или полного расписания
 @dp.message(F.text.in_(["Понедельник", "Вторник", "Среда", "Четверг", "Пятница"]))
 async def handle_day_selection(message: Message):
-    global selected_group, week_type, df
-
+    global selected_group
     day = message.text
-    schedule = extract_day_schedule(df, selected_group, week_type, day)
-
+    lessons = loader.get_daily_schedule(selected_group, day)
+    schedule = format_daily_schedule(lessons)
     await message.answer(schedule)
 
 
 # Обработчик для показа полного расписания
 @dp.message(F.text == "Показать всю неделю")
 async def handle_full_week(message: Message):
-    global selected_group, week_type, df
-
+    global selected_group
     # Показать расписание на всю неделю
-    full_schedule = extract_week_schedule(df, selected_group, week_type)
+    full_schedule = extract_week_schedule(selected_group)
     await message.answer(full_schedule)
-
-
-# Обработчик загрузки Excel-файла
-
 
 # Обработчик кнопки "Назад" для возврата на предыдущие шаги
 @dp.message(F.text == "Назад")
@@ -215,8 +205,10 @@ async def go_back(message: Message):
 
         # Запуск бота
 async def main():
-    # Загружаем данные расписания при старте
-    await load_schedule_data()
+    # Загружаем данные расписания при старте/парсим
+
+    # parse_timetables.parse_timetables("timetables")
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':

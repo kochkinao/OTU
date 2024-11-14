@@ -1,12 +1,12 @@
 import os
 import psycopg2
-
-
+import sqlalchemy
+from dotenv import load_dotenv
 from timetable_parser import TimetablePDFParser
 
 
 TIMETABLE_DIR = 'timetables'
-
+load_dotenv()
 
 def list_files_in_directory(directory_path):
     """Перебирать все PDF-файлы в папке"""
@@ -25,7 +25,7 @@ def parse_timetables(timetable_dir=TIMETABLE_DIR):
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
     df = parser.parse_all_pdfs(filepaths=files)  # Парсим их в pandas.DataFrame
-    conn = psycopg2.connect("dbname='shedule' user='postgres' host='localhost' port='7546' password='root'")
+    conn = sqlalchemy.create_engine(os.getenv("DB_URL")).connect()
 
     df.to_sql(name='class', con=conn, if_exists='append', index=False)
 
