@@ -1,9 +1,9 @@
 import pprint
-from datetime import datetime
+from datetime import datetime, time
 from typing import NamedTuple
-import sys
 
 import pandas as pd
+import sqlalchemy
 
 Weekday = str
 
@@ -14,9 +14,9 @@ class Lesson(NamedTuple):
     name: str
 
 
-class CSVScheduleLoader:
-    def __init__(self, filepath: str):
-        self.fp = filepath
+class PDFScheduleLoader:
+    def __init__(self, db_url):
+        self.db_engine = sqlalchemy.create_engine(db_url)
         self.df = self.read_schedule_file()
 
     @staticmethod
@@ -27,12 +27,11 @@ class CSVScheduleLoader:
         return start_datetime, end_datetime
 
     @staticmethod
-    def _make_time_interval(begin_time: datetime, end_time: datetime):
-        return datetime.strftime(begin_time, '%H.%M')+'-'+datetime.strftime(end_time, '%H.%M')
+    def _make_time_interval(begin_time: time, end_time: time):
+        return begin_time.strftime('%H:%M') + '-' + end_time.strftime('%H:%M')
 
     def read_schedule_file(self):
-        df = pd.read_csv(self.fp)
-        df['Время начала'], df['Время окончания'] = zip(*df['Время'].apply(self._parse_time_interval))
+        df = pd.read_sql(sql='class', con=self.db_engine.connect())
         return df
 
     def get_daily_schedule(self, group: str, week_day: str) -> list[Lesson]:
@@ -40,14 +39,14 @@ class CSVScheduleLoader:
         daily_lessons = []
 
         # Фильтруем по группе и дню недели и сортируем по времени
-        filtered_df = self.df[(self.df['День недели'] == week_day) & (self.df['Группа'] == group)].sort_values(
-            by='Время начала')
+        filtered_df = self.df[(self.df['week_day'] == week_day) & (self.df['group'] == group)].sort_values(
+            by='start_time')
 
         for _, row in filtered_df.iterrows():
             lesson = Lesson(
-                week_day=row['День недели'],
-                time=self._make_time_interval(row['Время начала'], row['Время окончания']),
-                name=row['Занятие']
+                week_day=row['week_day'],
+                time=self._make_time_interval(row['start_time'], row['end_time']),
+                name=row['lesson']
             )
             # Добавляем занятие в список для соответствующего дня недели
             daily_lessons.append(lesson)
@@ -62,7 +61,7 @@ class CSVScheduleLoader:
 
 
 if __name__ == '__main__':
-    loader = CSVScheduleLoader(filepath='timetable_data.csv')
+    loader = PDFScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
 
     daily_lessons = loader.get_daily_schedule(group='АГС-22-1', week_day='Понедельник')
     pprint.pp(daily_lessons)
