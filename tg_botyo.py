@@ -7,23 +7,21 @@ import asyncio
 import sqlalchemy
 import os
 from dotenv import load_dotenv
+
+import csv_manager
+from csv_manager import Lesson
 load_dotenv()
 
 
-# Инициализация бота и диспетчера
-bot = Bot(token=os.getenv("TG_API_TOKEN"))
+# ключ в .env
+bot = Bot(token=os.getenv("TG_API_KEY"))
 dp = Dispatcher()
 
-
-# Функция для загрузки Excel-файла
-def load_excel(file_path):
-    df = pd.read_excel(file_path, sheet_name='AllPages')
-    return df
 
 
 # Функция для корректного форматирования расписания
 def format_schedule(schedule_dict):
-    formatted_schedule = []
+    formatted_schedule = [csv_manager.Lesson]
     for day, classes in schedule_dict.items():
         formatted_schedule.append(f"\n{day}:")
         for time, subject in classes.items():
