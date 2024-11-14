@@ -1,9 +1,11 @@
 import os
+import psycopg2
+
 
 from timetable_parser import TimetablePDFParser
 
+
 TIMETABLE_DIR = 'timetables'
-OUT_FILE = 'schedule.csv'
 
 
 def list_files_in_directory(directory_path):
@@ -19,12 +21,19 @@ def list_files_in_directory(directory_path):
     return file_paths
 
 
-def parse_timetables(timetable_dir=TIMETABLE_DIR, out_file=OUT_FILE):
+def parse_timetables(timetable_dir=TIMETABLE_DIR):
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
     df = parser.parse_all_pdfs(filepaths=files)  # Парсим их в pandas.DataFrame
-    df.to_csv(out_file, index=False)  # Экспортируем в CSV
+    conn = psycopg2.connect("dbname='shedule' user='postgres' host='localhost' port='7546' password='root'")
+
+    df.to_sql(name='class', con=conn, if_exists='append', index=False)
 
 
 if __name__ == '__main__':
-    parse_timetables(TIMETABLE_DIR, OUT_FILE)
+    # conn = psycopg2.connect("dbname='shedule' user='postgres' host='localhost' port='7546' password='root'")
+    # conn.cursor().execute('INSERT INTO class VALUES (%s, %s, %s, %s, %s)',
+    #                             ['Понеденьник', '10:35', '12:05', 'ИАС-22-1', 'yaslknaslflknadsv'])
+    # conn.commit()
+
+    parse_timetables(TIMETABLE_DIR)

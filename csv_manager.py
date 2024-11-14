@@ -1,6 +1,7 @@
 import pprint
 from datetime import datetime
 from typing import NamedTuple
+import sys
 
 import pandas as pd
 
@@ -61,7 +62,7 @@ class CSVScheduleLoader:
 
 
 if __name__ == '__main__':
-    loader = CSVScheduleLoader(filepath='schedule.csv')
+    loader = CSVScheduleLoader(filepath='timetable_data.csv')
 
     daily_lessons = loader.get_daily_schedule(group='АГС-22-1', week_day='Понедельник')
     pprint.pp(daily_lessons)

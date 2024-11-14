@@ -4,7 +4,7 @@ import pandas as pd
 
 class TimetablePDFParser:
     def parse_all_pdfs(self, filepaths: list[str]) -> pd.DataFrame:
-        df = pd.DataFrame(columns=['Группа', 'День недели', 'Время', 'Занятие'])
+        df = pd.DataFrame(columns=['group', 'week_day', 'time', 'lesson'])
         for filepath in filepaths:
             new_data = self.parse_pdf(filepath)
             df = pd.concat([df, new_data])
@@ -30,7 +30,7 @@ class TimetablePDFParser:
 
         df['День недели'] = df['День недели'].ffill()
 
-        result_df = pd.DataFrame(columns=['Группа', 'День недели', 'Время', 'Занятие'])
+        result_df = pd.DataFrame(columns=['group', 'week_day', 'time', 'lesson'])
 
         # Парсим все пары отдельно
         for group in df.columns[2:]:
@@ -38,11 +38,12 @@ class TimetablePDFParser:
                 if not lesson:
                     lesson = None
                 result_df.loc[len(result_df)] = {
-                    'Группа': group,
-                    'День недели': week_day,
-                    'Время': time,
-                    'Занятие': lesson,
+                    'group': group,
+                    'week_day': week_day,
+                    'time': time,
+                    'lesson': lesson,
                 }
+        result_df[['start_time', 'end_time']] = result_df['time'].str.split('-', expand=True)
 
         return result_df
 
