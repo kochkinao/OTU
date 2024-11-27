@@ -154,7 +154,7 @@ async def choose_group(message: Message):
     previous_step = current_step
     current_step = "group_selection"
     await message.answer("Выбери свою группу:", reply_markup=group_keyboard)
-
+2
 
 # Универсальный обработчик для всех групп
 @dp.message(F.text.in_([
