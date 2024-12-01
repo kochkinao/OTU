@@ -6,7 +6,6 @@ from timetable_parser import TimetablePDFParser
 
 
 TIMETABLE_DIR = 'timetables'
-load_dotenv()
 
 def list_files_in_directory(directory_path):
     """Перебирать все PDF-файлы в папке"""
@@ -35,5 +34,5 @@ if __name__ == '__main__':
     # conn.cursor().execute('INSERT INTO class VALUES (%s, %s, %s, %s, %s)',
     #                             ['Понеденьник', '10:35', '12:05', 'ИАС-22-1', 'yaslknaslflknadsv'])
     # conn.commit()
-
+    load_dotenv()
     parse_timetables(TIMETABLE_DIR)
