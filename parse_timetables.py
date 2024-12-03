@@ -28,8 +28,10 @@ def list_files_in_directory(directory_path):
 def parse_timetable(timetable_data: pandas.DataFrame):
     for i, row in timetable_data.iterrows():
         if row['lesson']:
-            lessons = parse_lesson(lesson_info=row['lesson'])
-            print(lessons)
+            try:
+                lessons = parse_lesson(lesson_info=row['lesson'])
+            except Exception as ex:
+                print(ex)
 
 
 def parse_timetables(timetable_dir=TIMETABLE_DIR):
