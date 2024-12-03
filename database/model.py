@@ -35,14 +35,15 @@ class Lesson(Base):
     __tablename__ = 'lessons'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    subject = Column(String, nullable=False)    # Название предмета
     day_of_week = Column(Integer, nullable=False)  # День недели (1-5)
-    room_number = Column(String, nullable=False)  # Номер аудитории
+    room_number = Column(String)  # Номер аудитории
     is_even_week = Column(BOOLEAN, nullable=False)  # Четность недели
     is_practice = Column(BOOLEAN, nullable=False)  # Четность недели
 
     group_id = Column(Integer, ForeignKey('student_group.id'), nullable=False)  # Номер группы (ссылка на Group)
     pair_id = Column(Integer, ForeignKey('class_schedule.pair_number'), nullable=False)  # Номер пары (ссылка на ClassSchedule)
-    teacher_id = Column(Integer, ForeignKey('teachers.id'), nullable=False)  # ID преподавателя (ссылка на Teacher)
+    teacher_id = Column(Integer, ForeignKey('teachers.id'))  # ID преподавателя (ссылка на Teacher)
 
     group = relationship("Group", back_populates="lessons")
     teacher = relationship("Teacher", back_populates="lessons")  # Обратная связь

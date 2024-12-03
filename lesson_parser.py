@@ -18,7 +18,7 @@ class LessonData(NamedTuple):
     teacher_post: str = None
     teacher_name: str = None
     room_number: int = None
-    is_practice: bool = None
+    is_practice: bool = False
     is_even_week: bool = None
 
 def cut(string: str):
@@ -177,7 +177,10 @@ def parse_lesson(lesson_info: str) -> list[LessonData]:
 
 
 if __name__ == '__main__':
-    lesson = """____________________\nII 1/2 Физика Земли\nДоц. Егорова Ю.С. пр. № Горный музей"""
+    lesson = """_____________________
+II Метрология, стандартизация и
+сертификация
+Доц. Сытько И.И. пр. №3526"""
     print(THREE_DIFFERENT_TEACHERS_REGEXP)
     lesson = parse_lesson(lesson_info=lesson)
     print(lesson)

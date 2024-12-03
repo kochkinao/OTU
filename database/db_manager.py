@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from settings import DB_URL
 
-from database.model import Base, Group, Teacher, ClassSchedule
+from database.model import Base, Group, Teacher, ClassSchedule, Lesson
 
 
 class DbManager:
@@ -44,6 +44,12 @@ class DbManager:
     def find_pair_by_number(self, number: int):
         with self.Session() as session:
             return session.query(ClassSchedule).filter(ClassSchedule.pair_number == number).first()
+
+    def remove_all_lessons(self):
+        with self.Session() as session:
+            for lesson in session.query(Lesson).all():
+                session.delete(lesson)
+            session.commit()
 
     def save(self, obj):
         with self.Session() as session:

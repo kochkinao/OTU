@@ -1,12 +1,14 @@
 from datetime import datetime
 import os
+from traceback import print_exception
 
 import pandas
 from database.db_manager import DbManager
-from database.model import Group, Teacher, ClassSchedule
+from database.model import Group, Teacher, ClassSchedule, Lesson
 from lesson_parser import parse_lesson
 from settings import SOURCE_DIR, DB_URL
 from timetable_parser_v2 import TimetablePDFParser
+from weekdays import get_week_day_number
 
 TIMETABLE_DIR = 'timetables'
 
@@ -45,15 +47,52 @@ def check_teacher(db_manager: DbManager, teacher_name: str, teacher_post: str):
 
 def parse_timetable(db_manager: DbManager, timetable_data: pandas.DataFrame):
     for i, row in timetable_data.iterrows():
-        try:
-            lessons = parse_lesson(lesson_info=row['lesson'])
-            for lesson in lessons:
-                teacher = check_teacher(db_manager, lesson.teacher_name, lesson.teacher_post)
-                group = db_manager.find_group_by_name(row['group'])
-                pair = db_manager.find_pair_by_start_time(row['start_time'])
-        except ValueError as ex:
-            print('Ошибка во время парсинга строки:')
-            print(row['lesson'])
+        if row['lesson']:
+            try:
+                lessons = parse_lesson(lesson_info=row['lesson'])
+                for lesson in lessons:
+                    teacher = check_teacher(db_manager, lesson.teacher_name, lesson.teacher_post)
+                    group = db_manager.find_group_by_name(row['group'])
+                    pair = db_manager.find_pair_by_start_time(row['start_time'])
+                    if lesson.is_even_week is not None:
+                        new_lesson = Lesson(
+                            day_of_week=get_week_day_number(row['week_day']),
+                            room_number=lesson.room_number,
+                            subject=lesson.lesson_name,
+                            is_even_week=lesson.is_even_week,
+                            is_practice=lesson.is_practice,
+                            pair=pair,
+                            group=group,
+                            teacher=teacher
+                        )
+                        db_manager.save(new_lesson)
+                    else:
+                        new_lesson = Lesson(
+                            day_of_week=get_week_day_number(row['week_day']),
+                            room_number=lesson.room_number,
+                            subject=lesson.lesson_name,
+                            is_even_week=True,
+                            is_practice=lesson.is_practice,
+                            pair=pair,
+                            group=group,
+                            teacher=teacher
+                        )
+                        db_manager.save(new_lesson)
+                        new_lesson = Lesson(
+                            day_of_week=get_week_day_number(row['week_day']),
+                            room_number=lesson.room_number,
+                            subject=lesson.lesson_name,
+                            is_even_week=False,
+                            is_practice=lesson.is_practice,
+                            pair=pair,
+                            group=group,
+                            teacher=teacher
+                        )
+                        db_manager.save(new_lesson)
+            except Exception as ex:
+                print('Ошибка во время парсинга строки:')
+                print(row['lesson'])
+                print_exception(ex)
 
 
 def load_times(db_manager, pair_times):
@@ -71,6 +110,7 @@ def load_times(db_manager, pair_times):
 
 
 def parse_timetables(db_manager: DbManager, timetable_dir=TIMETABLE_DIR):
+    db_manager.remove_all_lessons()
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
     for file in files:
