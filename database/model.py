@@ -22,6 +22,7 @@ class Teacher(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     full_name = Column(String, nullable=False, unique=True)  # ФИО преподавателя
+    post = Column(String, nullable=False)   # Должность преподавателя
 
     lessons = relationship("Lesson", back_populates="teacher")  # Связь с таблицей Lesson
 
@@ -35,8 +36,10 @@ class Lesson(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     day_of_week = Column(Integer, nullable=False)  # День недели (1-5)
-    is_even_week = Column(BOOLEAN, nullable=False)  # Четность недели
     room_number = Column(String, nullable=False)  # Номер аудитории
+    is_even_week = Column(BOOLEAN, nullable=False)  # Четность недели
+    is_practice = Column(BOOLEAN, nullable=False)  # Четность недели
+
     group_id = Column(Integer, ForeignKey('student_group.id'), nullable=False)  # Номер группы (ссылка на Group)
     pair_id = Column(Integer, ForeignKey('class_schedule.pair_number'), nullable=False)  # Номер пары (ссылка на ClassSchedule)
     teacher_id = Column(Integer, ForeignKey('teachers.id'), nullable=False)  # ID преподавателя (ссылка на Teacher)

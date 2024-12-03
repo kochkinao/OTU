@@ -1,8 +1,13 @@
 import os
-import psycopg2
+
+import pandas
+
+from database.model import Lesson
+from settings import SOURCE_DIR
 import sqlalchemy
 from dotenv import load_dotenv
-from timetable_parser import TimetablePDFParser
+from timetable_parser_v2 import TimetablePDFParser
+from lesson_parser import parse_lesson
 
 
 TIMETABLE_DIR = 'timetables'
@@ -20,13 +25,19 @@ def list_files_in_directory(directory_path):
     return file_paths
 
 
+def parse_timetable(timetable_data: pandas.DataFrame):
+    for i, row in timetable_data.iterrows():
+        if row['lesson']:
+            lessons = parse_lesson(lesson_info=row['lesson'])
+            print(lessons)
+
+
 def parse_timetables(timetable_dir=TIMETABLE_DIR):
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
-    df = parser.parse_all_pdfs(filepaths=files)  # Парсим их в pandas.DataFrame
-    conn = sqlalchemy.create_engine(os.getenv("DB_URL")).connect()
-
-    df.to_sql(name='class', con=conn, if_exists='append', index=False)
+    for file in files:
+        df = parser.parse_pdf(filepath=file)  # Парсим их в pandas.DataFrame
+        parse_timetable(df)
 
 
 if __name__ == '__main__':
@@ -34,5 +45,4 @@ if __name__ == '__main__':
     # conn.cursor().execute('INSERT INTO class VALUES (%s, %s, %s, %s, %s)',
     #                             ['Понеденьник', '10:35', '12:05', 'ИАС-22-1', 'yaslknaslflknadsv'])
     # conn.commit()
-    load_dotenv()
-    parse_timetables(TIMETABLE_DIR)
+    parse_timetables(SOURCE_DIR)
