@@ -71,6 +71,15 @@ class DbManager:
                 .order_by(Lesson.day_of_week, ClassSchedule.start_time).all()
             return lessons
 
+    def get_weekly_group_pairs(self, group: str, is_even_week: bool):
+        """Получает все пары группы за определённый день"""
+        with self.Session() as session:
+            lessons = session.query(Lesson).join(ClassSchedule).join(Group)\
+                .where(Group.name == group.upper())\
+                .where(Lesson.is_even_week == is_even_week)\
+                .order_by(Lesson.day_of_week, ClassSchedule.start_time).all()
+            return lessons
+
     def save(self, obj):
         with self.Session() as session:
             session.add(obj)
@@ -84,5 +93,5 @@ class DbManager:
 
 if __name__ == '__main__':
     db_manager = DbManager(DB_URL)
-    for i in db_manager.get_daily_group_pairs('ист-22-2', 'Понедельник', is_even_week=True):
-        print(i.day_of_week, i.pair_id, i.subject)
+    for i in db_manager.get_weekly_group_pairs('иас-22-1', is_even_week=True):
+        print(i.day_of_week, i.pair.start_time, i.subject)

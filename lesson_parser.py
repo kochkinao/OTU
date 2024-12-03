@@ -166,8 +166,6 @@ def parse_lesson(lesson_info: str) -> list[LessonData]:
         elif re.fullmatch(PARES_BY_WEEKS_REGEXP, lesson_info):
             lessons = re.findall(PARES_BY_WEEKS_REGEXP, lesson_info)
             lesson1, lesson2 = form_week_changed_lessons(lessons[0])
-            print(lesson1)
-            print(lesson2)
             lessons_data.append(lesson1)
             lessons_data.append(lesson2)
         elif re.fullmatch(SIMPLE_PARE_REGEXP, lesson_info):

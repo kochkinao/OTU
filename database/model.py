@@ -45,9 +45,9 @@ class Lesson(Base):
     pair_id = Column(Integer, ForeignKey('class_schedule.pair_number'), nullable=False)  # Номер пары (ссылка на ClassSchedule)
     teacher_id = Column(Integer, ForeignKey('teachers.id'))  # ID преподавателя (ссылка на Teacher)
 
-    group = relationship("Group", back_populates="lessons")
-    teacher = relationship("Teacher", back_populates="lessons")  # Обратная связь
-    pair = relationship("ClassSchedule")  # Связь с таблицей ClassSchedule
+    group = relationship("Group", back_populates="lessons", lazy="joined")
+    teacher = relationship("Teacher", back_populates="lessons", lazy="joined")  # Обратная связь
+    pair = relationship("ClassSchedule", lazy="joined")  # Связь с таблицей ClassSchedule
 
     def __repr__(self):
         return (f"<Lesson(group_name={self.group_name}, day_of_week={self.day_of_week},"
