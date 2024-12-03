@@ -1,11 +1,11 @@
 from datetime import time
 
-from sqlalchemy import create_engine, se
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from settings import DB_URL
 
-from model import Base, Group, Teacher, ClassSchedule
+from database.model import Base, Group, Teacher, ClassSchedule
 
 
 class DbManager:
@@ -40,6 +40,21 @@ class DbManager:
         """
         with self.Session() as session:
             return session.query(ClassSchedule).filter(ClassSchedule.start_time == start_time).first()
+
+    def find_pair_by_number(self, number: int):
+        with self.Session() as session:
+            return session.query(ClassSchedule).filter(ClassSchedule.pair_number == number).first()
+
+    def save(self, obj):
+        with self.Session() as session:
+            session.add(obj)
+            session.commit()
+
+    def save_all(self, obj_list):
+        with self.Session() as session:
+            session.add_all(obj_list)
+            session.commit()
+
 
 if __name__ == '__main__':
     DbManager(DB_URL)

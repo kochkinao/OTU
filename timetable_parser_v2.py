@@ -20,7 +20,7 @@ def list_files_in_directory(directory_path):
 
 
 class TimetablePDFParser:
-    def parse_pdf(self, filepath: str) -> pd.DataFrame:
+    def parse_pdf(self, filepath: str) -> tuple[pd.DataFrame, list[str], set[str]]:
         # Открываем файл расписания
         with pdfplumber.open(filepath) as pdf:
             first_page = pdf.pages[0]  # Указываем страницу с расписанием
@@ -64,10 +64,13 @@ class TimetablePDFParser:
         df['День недели'] = df['День недели'].ffill()
         # print("DataFrame после преобразования:", df.head())
 
+        group_names = []
+        pair_times = set()
         result_df = pd.DataFrame(columns=['group', 'week_day', 'time', 'lesson'])
 
         # Парсим все пары отдельно
         for group in df.columns[2:]:
+            group_names.append(group)
             for week_day, time, lesson in zip(df['День недели'], df['Время'], df[group]):
                 if not lesson:
                     lesson = None
@@ -77,11 +80,12 @@ class TimetablePDFParser:
                     'time': time.replace('.', ':'),
                     'lesson': lesson,
                 }
+                pair_times.add(time.replace('.', ':'))
 
         result_df[['start_time', 'end_time']] = result_df['time'].str.split('-', expand=True)
         result_df = result_df.drop(columns='time')
         # print("Доступные столбцы:", df.columns.tolist())
-        return result_df
+        return result_df, group_names, pair_times
 
 
 

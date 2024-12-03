@@ -1,16 +1,15 @@
+from datetime import datetime
 import os
 
 import pandas
-
-from database.model import Lesson
-from settings import SOURCE_DIR
-import sqlalchemy
-from dotenv import load_dotenv
-from timetable_parser_v2 import TimetablePDFParser
+from database.db_manager import DbManager
+from database.model import Group, Teacher, ClassSchedule
 from lesson_parser import parse_lesson
-
+from settings import SOURCE_DIR, DB_URL
+from timetable_parser_v2 import TimetablePDFParser
 
 TIMETABLE_DIR = 'timetables'
+
 
 def list_files_in_directory(directory_path):
     """Перебирать все PDF-файлы в папке"""
@@ -25,26 +24,62 @@ def list_files_in_directory(directory_path):
     return file_paths
 
 
-def parse_timetable(timetable_data: pandas.DataFrame):
+def load_groups(db_manager: DbManager, group_names: list[str], year: int):
+    for group_name in group_names:
+        if group := db_manager.find_group_by_name(group_name):
+            group.course = year
+        else:
+            group = Group(name=group_name, course=year)
+        db_manager.save(group)
+
+def check_teacher(db_manager: DbManager, teacher_name: str, teacher_post: str):
+    if teacher := db_manager.find_teacher_by_name(teacher_name):
+        if teacher.post != teacher_post:
+            teacher.post = teacher_post
+            db_manager.save(teacher)
+    elif teacher_name:
+        teacher = Teacher(full_name=teacher_name, post=teacher_post)
+        db_manager.save(teacher)
+    return teacher
+
+
+def parse_timetable(db_manager: DbManager, timetable_data: pandas.DataFrame):
     for i, row in timetable_data.iterrows():
-        if row['lesson']:
-            try:
-                lessons = parse_lesson(lesson_info=row['lesson'])
-            except Exception as ex:
-                print(ex)
+        try:
+            lessons = parse_lesson(lesson_info=row['lesson'])
+            for lesson in lessons:
+                teacher = check_teacher(db_manager, lesson.teacher_name, lesson.teacher_post)
+                group = db_manager.find_group_by_name(row['group'])
+                pair = db_manager.find_pair_by_start_time(row['start_time'])
+        except ValueError as ex:
+            print('Ошибка во время парсинга строки:')
+            print(row['lesson'])
 
 
-def parse_timetables(timetable_dir=TIMETABLE_DIR):
+def load_times(db_manager, pair_times):
+    times = []
+    for new_time in pair_times:
+        start_time, end_time = new_time.split('-')
+        start_time = datetime.strptime(start_time, '%H:%M').time()
+        end_time = datetime.strptime(end_time, '%H:%M').time()
+        times.append((start_time, end_time))
+    times.sort(key=lambda t: t[0])
+    for i, new_time in enumerate(times):
+        if not db_manager.find_pair_by_number(i+1):
+            pair = ClassSchedule(pair_number=i+1, start_time=new_time[0], end_time=new_time[1])
+            db_manager.save(pair)
+
+
+def parse_timetables(db_manager: DbManager, timetable_dir=TIMETABLE_DIR):
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
     for file in files:
-        df = parser.parse_pdf(filepath=file)  # Парсим их в pandas.DataFrame
-        parse_timetable(df)
+        print(file)
+        df, group_names, pair_times = parser.parse_pdf(filepath=file)  # Парсим их в pandas.DataFrame
+        load_times(db_manager, pair_times)
+        load_groups(db_manager, group_names, year=int(file.split('\\')[1][0]))
+        parse_timetable(db_manager, df)
 
 
 if __name__ == '__main__':
-    # conn = psycopg2.connect("dbname='shedule' user='postgres' host='localhost' port='7546' password='root'")
-    # conn.cursor().execute('INSERT INTO class VALUES (%s, %s, %s, %s, %s)',
-    #                             ['Понеденьник', '10:35', '12:05', 'ИАС-22-1', 'yaslknaslflknadsv'])
-    # conn.commit()
-    parse_timetables(SOURCE_DIR)
+    parse_timetables(DbManager(DB_URL), SOURCE_DIR)
