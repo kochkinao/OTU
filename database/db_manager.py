@@ -68,15 +68,34 @@ class DbManager:
                 .where(Group.name == group.upper())\
                 .where(Lesson.day_of_week == get_week_day_number(day))\
                 .where(Lesson.is_even_week == is_even_week)\
-                .order_by(Lesson.day_of_week, ClassSchedule.start_time).all()
+                .order_by(ClassSchedule.start_time).all()
             return lessons
 
     def get_weekly_group_pairs(self, group: str, is_even_week: bool):
-        """Получает все пары группы за определённый день"""
+        """Получает все пары группы за неделю (чётную или нечётную)"""
         with self.Session() as session:
             lessons = session.query(Lesson).join(ClassSchedule).join(Group)\
                 .where(Group.name == group.upper())\
                 .where(Lesson.is_even_week == is_even_week)\
+                .order_by(Lesson.day_of_week, ClassSchedule.start_time).all()
+            return lessons
+
+    def get_daily_teacher_pairs(self, full_teacher_name: str, day: str, is_even_week: bool):
+        """Получает все пары преподавателя за определённый день"""
+        with self.Session() as session:
+            lessons = session.query(Lesson).join(Teacher).join(ClassSchedule)\
+                .where(Teacher.full_name == full_teacher_name) \
+                .where(Lesson.day_of_week == get_week_day_number(day)) \
+                .where(Lesson.is_even_week == is_even_week)\
+                .order_by(ClassSchedule.start_time).all()
+            return lessons
+
+    def get_weekly_teacher_pairs(self, full_teacher_name: str, is_even_week: bool):
+        """Получает все пары преподавателя за неделю (чётную или нечётную)"""
+        with self.Session() as session:
+            lessons = session.query(Lesson).join(Teacher).join(ClassSchedule) \
+                .where(Teacher.full_name == full_teacher_name) \
+                .where(Lesson.is_even_week == is_even_week) \
                 .order_by(Lesson.day_of_week, ClassSchedule.start_time).all()
             return lessons
 
@@ -93,5 +112,11 @@ class DbManager:
 
 if __name__ == '__main__':
     db_manager = DbManager(DB_URL)
-    for i in db_manager.get_weekly_group_pairs('иас-22-1', is_even_week=True):
+    # print('Пары Сытько')
+    # for i in db_manager.get_weekly_teacher_pairs('Сытько И.И.', is_even_week=True):
+    #     print(i.day_of_week, i.pair.start_time, i.subject)
+
+    print('Пары ИАС-22-1')
+    for i in db_manager.get_weekly_group_pairs('ИАС-22-1', is_even_week=False):
         print(i.day_of_week, i.pair.start_time, i.subject)
+
