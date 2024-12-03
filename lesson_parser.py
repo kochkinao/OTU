@@ -105,7 +105,6 @@ def form_three_teacher_lessons(lessons: tuple) -> tuple[LessonData, LessonData, 
     return lesson1, lesson2, lesson3
 
 def form_room_by_week_lessons(lessons: tuple) -> tuple[LessonData, LessonData]:
-    print(lessons)
     lesson1 = LessonData(
         lesson_name=cut(lessons[0]),
         teacher_post=cut(lessons[1]),

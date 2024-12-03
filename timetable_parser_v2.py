@@ -62,7 +62,7 @@ class TimetablePDFParser:
         # Обработка столбца 'День недели'
         df['День недели'] = df['День недели'].apply(lambda x: x.replace('\n', '').capitalize() if x else None)
         df['День недели'] = df['День недели'].ffill()
-        print("DataFrame после преобразования:", df.head())
+        # print("DataFrame после преобразования:", df.head())
 
         result_df = pd.DataFrame(columns=['group', 'week_day', 'time', 'lesson'])
 
