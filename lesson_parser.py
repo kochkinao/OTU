@@ -46,7 +46,8 @@ def form_week_changed_lessons(lessons: tuple) -> tuple[LessonData, LessonData]:
         )
     else:
         lesson1 = LessonData(
-            lesson_name='Нет занятия'
+            lesson_name='Нет занятия',
+            is_even_week=True
         )
     if lessons[6]:
         lesson2 = LessonData(
@@ -59,7 +60,8 @@ def form_week_changed_lessons(lessons: tuple) -> tuple[LessonData, LessonData]:
         )
     else:
         lesson2 = LessonData(
-            lesson_name='Нет занятия'
+            lesson_name='Нет занятия',
+            is_even_week=False
         )
     return lesson1, lesson2
 
@@ -164,6 +166,8 @@ def parse_lesson(lesson_info: str) -> list[LessonData]:
         elif re.fullmatch(PARES_BY_WEEKS_REGEXP, lesson_info):
             lessons = re.findall(PARES_BY_WEEKS_REGEXP, lesson_info)
             lesson1, lesson2 = form_week_changed_lessons(lessons[0])
+            print(lesson1)
+            print(lesson2)
             lessons_data.append(lesson1)
             lessons_data.append(lesson2)
         elif re.fullmatch(SIMPLE_PARE_REGEXP, lesson_info):
@@ -177,10 +181,7 @@ def parse_lesson(lesson_info: str) -> list[LessonData]:
 
 
 if __name__ == '__main__':
-    lesson = """_____________________
-II Метрология, стандартизация и
-сертификация
-Доц. Сытько И.И. пр. №3526"""
-    print(THREE_DIFFERENT_TEACHERS_REGEXP)
+    lesson = """I Безопасность жизнедеятельности
+Доц. Корнев А.В. №1104
+_____________________"""
     lesson = parse_lesson(lesson_info=lesson)
-    print(lesson)

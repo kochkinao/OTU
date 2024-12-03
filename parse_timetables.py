@@ -54,19 +54,7 @@ def parse_timetable(db_manager: DbManager, timetable_data: pandas.DataFrame):
                     teacher = check_teacher(db_manager, lesson.teacher_name, lesson.teacher_post)
                     group = db_manager.find_group_by_name(row['group'])
                     pair = db_manager.find_pair_by_start_time(row['start_time'])
-                    if lesson.is_even_week is not None:
-                        new_lesson = Lesson(
-                            day_of_week=get_week_day_number(row['week_day']),
-                            room_number=lesson.room_number,
-                            subject=lesson.lesson_name,
-                            is_even_week=lesson.is_even_week,
-                            is_practice=lesson.is_practice,
-                            pair=pair,
-                            group=group,
-                            teacher=teacher
-                        )
-                        db_manager.save(new_lesson)
-                    else:
+                    if lesson.is_even_week is None:
                         new_lesson = Lesson(
                             day_of_week=get_week_day_number(row['week_day']),
                             room_number=lesson.room_number,
@@ -89,6 +77,19 @@ def parse_timetable(db_manager: DbManager, timetable_data: pandas.DataFrame):
                             teacher=teacher
                         )
                         db_manager.save(new_lesson)
+                    else:
+                        new_lesson = Lesson(
+                            day_of_week=get_week_day_number(row['week_day']),
+                            room_number=lesson.room_number,
+                            subject=lesson.lesson_name,
+                            is_even_week=lesson.is_even_week,
+                            is_practice=lesson.is_practice,
+                            pair=pair,
+                            group=group,
+                            teacher=teacher
+                        )
+                        db_manager.save(new_lesson)
+
             except Exception as ex:
                 print('Ошибка во время парсинга строки:')
                 print(row['lesson'])
