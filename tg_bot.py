@@ -53,7 +53,7 @@ choose_week_keyboard = ReplyKeyboardMarkup(
 @dp.message(CommandStart())
 async def send_welcome(message: Message, state: FSMContext):
     async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
-        await message.answer("Кто ты, воин?", reply_markup=choose_teacher_or_student_keyboard)
+        await message.answer("Кто ты?", reply_markup=choose_teacher_or_student_keyboard)
     await state.set_state(Form.is_student)
 
 
@@ -87,7 +87,7 @@ async def handle_group(message: Message, state: FSMContext):
                 await message.answer("За какую неделю хотите расписание?", reply_markup=choose_week_keyboard)
                 await state.set_state(Form.is_even_week)
             else:
-                await message.answer("Нет такой группы, в названии ошибка!")
+                await message.answer("Такой группы нет в базе, возможно в названии ошибка")
 
 
 @dp.message(F.text, Form.fio)
@@ -111,7 +111,7 @@ async def handle_fio(message: Message, state: FSMContext):
                 keyboard = ReplyKeyboardMarkup(keyboard=inline_keyboard, resize_keyboard=True)
                 await message.answer('Выберите своё ФИО', reply_markup=keyboard)
             else:
-                await message.answer('Не знаем такого')
+                await message.answer('Вас нет в базе')
 
 
 @dp.callback_query(F.data.startswith('teachers_name:'))
@@ -122,7 +122,7 @@ async def handle_fio(call: CallbackQuery, state: FSMContext):
         await state.set_state(Form.is_even_week)
 
 
-@dp.message(F.text, Form.is_even_week)
+@dp.message(F.text.in_(['Назад', 'Текущая неделя', 'Чётная', 'Нечётная']), Form.is_even_week)
 async def handle_week(message: Message, state: FSMContext):
     async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
         data = await state.get_data()

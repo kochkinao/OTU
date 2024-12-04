@@ -1,6 +1,5 @@
 services:
   schedule_bot:
-    build: .
     image: otu_schedule_bot
     container_name: schedule_bot
     restart: always
@@ -8,8 +7,20 @@ services:
       - TG_API_KEY=${TG_API_KEY}
       - DB_PASSWORD=${DB_PASSWORD}
       - TZ=Europe/Moscow
+    command: python tg_bot.py
     depends_on:
-      - postgres_db  # Зависимость от контейнера с БД
+      - postgres_db
+
+  parser:
+    image: otu_schedule_bot
+    container_name: schedule_parser
+    restart: "no"
+    command: python parse_timetables.py
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD}
+      - TZ=Europe/Moscow
+    depends_on:
+      - postgres_db
 
   postgres_db:
     image: postgres
@@ -20,5 +31,4 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "7546:5432"
-      - "443:443"
 #    command: -c 'listen_addresses=*'

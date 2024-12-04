@@ -10,8 +10,6 @@ from settings import SOURCE_DIR, DB_URL
 from parsers.timetable_parser import TimetablePDFParser
 from weekdays import get_week_day_number
 
-TIMETABLE_DIR = '../timetables'
-
 
 def list_files_in_directory(directory_path):
     """Перебирать все PDF-файлы в папке"""
@@ -110,7 +108,7 @@ def load_times(db_manager, pair_times):
             db_manager.save(pair)
 
 
-def parse_timetables(db_manager: DbManager, timetable_dir=TIMETABLE_DIR):
+def parse_timetables(db_manager: DbManager, timetable_dir=SOURCE_DIR):
     db_manager.remove_all_lessons()
     parser = TimetablePDFParser()  # Устанавливаем парсер
     files = list_files_in_directory(timetable_dir)  # Находим все PDF-файлы
@@ -118,7 +116,7 @@ def parse_timetables(db_manager: DbManager, timetable_dir=TIMETABLE_DIR):
         print(file)
         df, group_names, pair_times = parser.parse_pdf(filepath=file)  # Парсим их в pandas.DataFrame
         load_times(db_manager, pair_times)
-        load_groups(db_manager, group_names, year=int(file.split('\\')[1][0]))
+        load_groups(db_manager, group_names, year=int(file.split(os.path.sep)[-1][0]))
         parse_timetable(db_manager, df)
 
 

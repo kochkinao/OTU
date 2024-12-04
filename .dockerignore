@@ -1,0 +1,7 @@
+save
+.gitignore
+Dockerfile
+docker-compose.yml
+timetables/*
+.venv
+.idea
