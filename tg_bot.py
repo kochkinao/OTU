@@ -12,7 +12,9 @@ from aiogram.utils.chat_action import ChatActionSender
 from dotenv import load_dotenv
 
 from database.db_manager import DbManager
+from database.model import Lesson
 from settings import DB_URL, TG_API_KEY
+from weekdays import get_week_day_name
 
 load_dotenv()
 
@@ -101,7 +103,7 @@ async def handle_fio(message: Message, state: FSMContext):
             second_name = ' '.join(second_name)
             full_name = db_manager.find_teacher_names(second_name)
             if full_name and len(full_name) == 1:
-                await state.update_data(full_name=full_name)
+                await state.update_data(full_name=full_name[0])
                 await message.answer("За какую неделю хотите расписание?", reply_markup=choose_week_keyboard)
                 await state.set_state(Form.is_even_week)
             elif full_name:
@@ -123,8 +125,8 @@ async def handle_fio(call: CallbackQuery, state: FSMContext):
 @dp.message(F.text, Form.is_even_week)
 async def handle_week(message: Message, state: FSMContext):
     async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        data = await state.get_data()
         if message.text == 'Назад':
-            data = await state.get_data()
             if data['is_student']:
                 await state.set_state(Form.group)
                 await message.answer("Введите название группы (например, АГС-22-1)", reply_markup=back_keyboard)
@@ -138,30 +140,65 @@ async def handle_week(message: Message, state: FSMContext):
                 year = today.year if today.month >= 9 else today.year - 1
                 sep_1 = datetime(year, 9, 1)
                 if sep_1.weekday() >= 5:
-                    sep_1 += timedelta(days=7-sep_1.weekday())
-                week = (today-sep_1).days//7 + 1
-                request = 'Чётная' if week%2 == 0 else 'Нечётная'
-                print(request)
-            if request == 'Чётная':
-                ...
-            if request == 'Нечётная':
-                ...
+                    sep_1 += timedelta(days=7 - sep_1.weekday())
+                week = (today - sep_1).days // 7 + 1
+                request = 'Чётная' if week % 2 == 0 else 'Нечётная'
+            is_even_week = request == 'Нечётная'
+            if data['is_student']:
+                pairs = db_manager.get_weekly_group_pairs(group=data['group_name'], is_even_week=is_even_week)
+                msg = await send_student_pairs(pairs, is_even_week=is_even_week, group_name=data['group_name'])
+            else:
+                pairs = db_manager.get_weekly_teacher_pairs(full_teacher_name=data['full_name'],
+                                                            is_even_week=request == 'Нечётная')
+                msg = await send_teacher_pairs(pairs, is_even_week=is_even_week)
+            await message.answer(text=msg)
 
 
-# Выбор типа недели
-@dp.message(F.text.in_(["четная", "нечетная"]), )
-async def handle_week_type(message: Message, state: FSMContext):
-    global week_type
-    week_type = "even" if message.text.lower() == "четная" else "odd"
+async def send_student_pairs(pairs: list[Lesson], is_even_week: bool, group_name: str) -> str:
+    result = f'Расписание {"нечётной" if is_even_week else "чётной"} недели для группы {group_name}:\n'
+    previous_pair: Lesson = None
+    for pair in pairs:
+        if pair.subject != 'Нет занятия':
+            pair_string = f'        {pair.subject}\n'
+        else:
+            pair_string = '        Нет занятия\n'
+        if pair.teacher and not pair.room_number:
+            pair_string += f'        {pair.teacher} {"пр." if pair.is_practice else ""}\n'
+        elif pair.teacher and pair.room_number:
+            pair_string += f'        {pair.teacher} {"пр." if pair.is_practice else ""}   №{pair.room_number}\n'
+        if not previous_pair or previous_pair.day_of_week != pair.day_of_week:
+            result += f'\n{get_week_day_name(pair.day_of_week).capitalize()}:\n'
+        if previous_pair and pair.pair_id == previous_pair.pair_id and previous_pair.day_of_week == pair.day_of_week:
+            result += pair_string
+        else:
+            result += f'    {pair.pair.start_time.strftime(format="%H:%M")}-{pair.pair.end_time.strftime(format="%H:%M")}:\n'
+            result += pair_string
+        previous_pair = pair
+    return result
 
-    if selected_group:
-        await message.answer(
-            f"Выбрана {message.text} неделя. Введите день недели для получения расписания (например, Понедельник):"
-        )
-    elif selected_teacher:
-        await message.answer(
-            f"Выбрана {message.text} неделя. Введите день недели для получения расписания преподавателя (например, Понедельник):"
-        )
+
+async def send_teacher_pairs(pairs: list[Lesson], is_even_week: bool) -> str:
+    result = f'Ваше расписание {"нечётной" if is_even_week else "чётной"} недели:\n'
+    previous_pair: Lesson = None
+    for pair in pairs:
+        if pair.subject == 'Нет занятия':
+            pair_string = '        Нет занятия\n'
+        elif previous_pair and pair.pair_id == previous_pair.pair_id and pair.day_of_week == previous_pair.day_of_week:
+            pair_string = f''
+        elif pair.room_number:
+            pair_string = f'        {pair.subject} {"пр." if pair.is_practice else ""} ауд. №{pair.room_number}\n'
+        else:
+            pair_string = f'        {pair.subject} {"пр." if pair.is_practice else ""}\n'
+        pair_string += f'        {pair.group}\n'
+        if not previous_pair or previous_pair.day_of_week != pair.day_of_week:
+            result += f'\n{get_week_day_name(pair.day_of_week).capitalize()}:\n'
+        if previous_pair and pair.pair_id == previous_pair.pair_id and previous_pair.day_of_week == pair.day_of_week:
+            result += pair_string
+        else:
+            result += f'    {pair.pair.start_time.strftime(format="%H:%M")}-{pair.pair.end_time.strftime(format="%H:%M")}:\n'
+            result += pair_string
+        previous_pair = pair
+    return result
 
 
 async def main():

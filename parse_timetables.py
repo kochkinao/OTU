@@ -5,9 +5,9 @@ from traceback import print_exception
 import pandas
 from database.db_manager import DbManager
 from database.model import Group, Teacher, ClassSchedule, Lesson
-from lesson_parser import parse_lesson
+from parsers.lesson_parser import parse_lesson
 from settings import SOURCE_DIR, DB_URL
-from timetable_parser_v2 import TimetablePDFParser
+from parsers.timetable_parser import TimetablePDFParser
 from weekdays import get_week_day_number
 
 TIMETABLE_DIR = 'timetables'

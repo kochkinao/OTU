@@ -27,7 +27,7 @@ class Teacher(Base):
     lessons = relationship("Lesson", back_populates="teacher")  # Связь с таблицей Lesson
 
     def __repr__(self):
-        return f"<Teacher(full_name={self.full_name})>"
+        return f"{self.post} {self.full_name}"
 
 
 # Таблица для расписания занятий
@@ -64,4 +64,4 @@ class Group(Base):
     lessons = relationship("Lesson", back_populates="group")  # Связь с таблицей Lesson
 
     def __repr__(self):
-        return f"<Group(name={self.name}, course={self.course}, faculty_short={self.faculty_short})>"
+        return f"{self.name}"
