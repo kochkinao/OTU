@@ -1,231 +1,126 @@
-import pandas as pd
+import os
+import asyncio
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram import F
-import asyncio
-import sqlalchemy
-import os
-#.env
 from dotenv import load_dotenv
-#MarkdownV2 чтоб красиво было
-#дуркакод re для escape_md
-import re
-import parse_timetables
-from db_manager import ScheduleLoader, Lesson
+from database.db_manager import DbManager
+from lesson_parser import parse_lesson
+from parse_timetables import parse_timetables
+from settings import DB_URL, SOURCE_DIR
+
 load_dotenv()
 
-
-# ключ в .env
+# Инициализация бота и базы данных
 bot = Bot(token=os.getenv("TG_API_KEY"))
 dp = Dispatcher()
+db_manager = DbManager(DB_URL)
 
-# loader = ScheduleLoader(db_url='postgresql://postgres:root@localhost:7546/shedule')
-loader = ScheduleLoader(db_url=os.getenv("DB_URL"))
-
-
-
-
-# Функция для экранирования символов MarkdownV2
-def escape_md(text: str) -> str:
-    return re.sub(r'([\\*_`\[\]()~>#+\-=|{}.!])', r'\\\1', text)
-
-# Функция для корректного форматирования расписания
-def format_daily_schedule(schedule: list[Lesson]):
-    print(schedule)
-    formatted_schedule = []
-    for lesson in schedule:
-        # чек на пустое
-        if lesson.name == "Военная подготовка\n(факультативные дисциплины)":
-            lesson_name = escape_md(lesson.name)
-            formatted_schedule.append(f"\n**{lesson_name}**")
-        elif lesson.name is not None:
-                # Убираем "_____________________" и экранируем специальные символы для Markdown
-                lesson_name = escape_md(lesson.name.replace("_____________________", ""))
-                lesson_time = escape_md(lesson.time)
-                formatted_schedule.append(f"*{lesson_time}:*\n```{lesson_name}```")
-    return "\n".join(formatted_schedule)
-
-def format_schedule(schedule: dict[str,list[Lesson]]):
-    formatted_schedule = []
-    for day, lesson in schedule.items():
-        formatted_schedule.append(f"\n{day}:")
-        formatted_schedule.append(format_daily_schedule(lesson))
-    return "\n".join(formatted_schedule)
-
-# Функция для извлечения расписания для конкретного дня
-def extract_day_schedule(group_name, day):
-    if not group_column:
-        return f"Группа {group_name} не найдена в расписании."
-    group_column = group_column[0]
-    # Колонка с временем
-    time_column = df.columns[1]
-    # Словарь для хранения расписания на день
-    day_schedule = {}
-    for index, row in df.iterrows():
-        current_day = row[df.columns[0]]
-        time = row[time_column]
-        subject = row[group_column]
-        # Проверка на корректность дня и недели
-        if isinstance(current_day, str) and current_day.strip() == day:
-            print(f"Проверка предмета: {subject}, для дня: {day}, время: {time}")  # Отладка
-            if isinstance(subject, str):
-                if week_type == "odd":
-                    # Для нечетной недели (I или I и II)
-                    if "I" in subject:
-                        print(f"Добавлено для нечетной недели: {subject}")  # Отладка
-                        day_schedule[time] = subject
-                elif week_type == "even":
-                    # Для четной недели (II или I и II)
-                    if "II" in subject:
-                        print(f"Добавлено для четной недели: {subject}")  # Отладка
-                        day_schedule[time] = subject
-
-    return format_schedule(
-        {day: day_schedule}) if day_schedule else f"Для {day} не найдено расписания на {week_type}-ю неделю."
+# Глобальные переменные
+selected_group = ""
+selected_teacher = ""
+week_type = ""
 
 
-# Функция для извлечения полного расписания для недели
-def extract_week_schedule(group_name):
-    group_schedule = loader.get_weekly_schedule(group_name)
-    return format_schedule(group_schedule)
-
-
-# Основные клавиши
-start_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Выбери группу")]
-    ],
-    resize_keyboard=True
-)
-
-# Клавиатура для выбора группы
-group_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="АГС-22-1"), KeyboardButton(text="АГС-22-2"), KeyboardButton(text="АГС-22-3")],
-        [KeyboardButton(text="ГГ-22-1"), KeyboardButton(text="ГГ-22-2"), KeyboardButton(text="ГК-22")],
-        [KeyboardButton(text="ГС-22-1"), KeyboardButton(text="ГС-22-2"), KeyboardButton(text="ИГ-22-1")],
-        [KeyboardButton(text="ИГ-22-2"), KeyboardButton(text="ПГС-22"), KeyboardButton(text="СПС-22")],
-        [KeyboardButton(text="ИАС-22-1"), KeyboardButton(text="ИАС-22-2"), KeyboardButton(text="ИТУ-22")],
-        [KeyboardButton(text="МП-22"), KeyboardButton(text="МТ-22"), KeyboardButton(text="САМ-22")],
-        [KeyboardButton(text="ЭГ-22-1"), KeyboardButton(text="ЭГ-22-2")]
-    ],
-    resize_keyboard=True
-)
-
-# Клавиатура для выбора недели
-week_type_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Четная неделя"), KeyboardButton(text="Нечетная неделя")],
-        [KeyboardButton(text="Назад")]
-    ],
-    resize_keyboard=True
-)
-# Клавиатура для дней недели и полного расписания
-def day_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Понедельник"), KeyboardButton(text="Вторник")],
-            [KeyboardButton(text="Среда"), KeyboardButton(text="Четверг")],
-            [KeyboardButton(text="Пятница")],
-            [KeyboardButton(text="Показать всю неделю"), KeyboardButton(text="Назад")]
-        ],
-        resize_keyboard=True
+# Команда /start
+@dp.message(Command("start"))
+async def send_welcome(message: Message):
+    await message.answer(
+        "Привет! Введите 'группа' для поиска по группе или 'преподаватель' для поиска по преподавателю."
     )
 
 
-# Глобальные переменные для хранения выбранной группы и текущего шага
-selected_group = ""
-current_step = ""
-week_type = ""
-df = None  # Для хранения данных Excel
+# Начальный выбор: группа или преподаватель
+@dp.message(F.text.in_(["группа", "преподаватель"]))
+async def initial_choice(message: Message):
+    choice = message.text.lower()
+    if choice == "группа":
+        await message.answer("Введите название вашей группы (например, АГС-22-1):")
+    elif choice == "преподаватель":
+        await message.answer("Введите фамилию преподавателя (например, Иванов):")
 
 
-# Обработчик команды /start
-@dp.message(Command("start"))
-async def send_welcome(message: Message):
-    global current_step
-    current_step = "start"
-    await message.answer("Привет! Нажми 'Выбери группу', чтобы продолжить:", reply_markup=start_keyboard)
-# Обработчик нажатия на кнопку "Выбери группу"
-@dp.message(F.text == "Выбери группу")
-async def choose_group(message: Message):
-    global current_step, previous_step
-    previous_step = current_step
-    current_step = "group_selection"
-    await message.answer("Выбери свою группу:", reply_markup=group_keyboard)
-2
+# Обработка ввода группы или преподавателя
 
-# Универсальный обработчик для всех групп
-@dp.message(F.text.in_([
-    "АГС-22-1", "АГС-22-2", "АГС-22-3",
-    "ГГ-22-1", "ГГ-22-2", "ГК-22",
-    "ГС-22-1", "ГС-22-2", "ИГ-22-1",
-    "ИГ-22-2", "ПГС-22", "СПС-22",
-    "ИАС-22-1", "ИАС-22-2", "ИТУ-22",
-    "МП-22", "МТ-22", "САМ-22", "ЭГ-22-1", "ЭГ-22-2"
-]))
-async def handle_group_selection(message: Message):
-    global selected_group, current_step, previous_step
-    previous_step = current_step
-    selected_group = message.text  # Сохраняем выбранную группу
-    current_step = "week_selection"  # Переход на выбор недели
-    await message.answer(f"Ты выбрал {selected_group}. Теперь выбери тип недели:", reply_markup=week_type_keyboard)
+@dp.message(lambda message: message.text and len(message.text) > 2)
+async def handle_input(message: Message):
+    global selected_group, selected_teacher
+
+    input_text = message.text.strip()
+
+    # Проверка: это группа или преподаватель
+    if db_manager.is_valid_group(input_text):
+        selected_group = input_text
+        await message.answer(
+            f"Группа {selected_group} выбрана. Теперь выберите тип недели (четная/нечетная):"
+        )
+    elif db_manager.is_valid_teacher(input_text):
+        selected_teacher = input_text
+        await message.answer(
+            f"Преподаватель {selected_teacher} выбран. Теперь выберите тип недели (четная/нечетная):"
+        )
+    else:
+        await message.answer(
+            "Неверный ввод. Убедитесь, что вы ввели корректное название группы или фамилию преподавателя. Попробуйте снова."
+        )
 
 
-# Обработчик нажатия на неделю
-@dp.message(F.text.in_(["Четная неделя", "Нечетная неделя"]))
+# Выбор типа недели
+@dp.message(F.text.in_(["четная", "нечетная"]))
 async def handle_week_type(message: Message):
-    global selected_group, current_step, previous_step, week_type
-    previous_step = current_step
-    week_type = "even" if message.text == "Четная неделя" else "odd"
-    current_step = "day_selection"
+    global week_type
+    week_type = "even" if message.text.lower() == "четная" else "odd"
 
-    # Показываем кнопки для дней недели
-    await message.answer(f"Выбрана {message.text}. Выберите день или просмотрите всю неделю:",
-                         reply_markup=day_keyboard())
+    if selected_group:
+        await message.answer(
+            f"Выбрана {message.text} неделя. Введите день недели для получения расписания (например, Понедельник):"
+        )
+    elif selected_teacher:
+        await message.answer(
+            f"Выбрана {message.text} неделя. Введите день недели для получения расписания преподавателя (например, Понедельник):"
+        )
 
 
-# Обработчик для выбора дня недели или полного расписания
-@dp.message(F.text.in_(["Понедельник", "Вторник", "Среда", "Четверг", "Пятница"]))
+# Выбор дня недели
+@dp.message(F.text.in_(["понедельник", "вторник", "среда", "четверг", "пятница"]))
 async def handle_day_selection(message: Message):
-    global selected_group
     day = message.text
-    lessons = loader.get_daily_schedule(selected_group, day)
-    schedule = format_daily_schedule(lessons)
-    await message.answer(schedule, parse_mode="MarkdownV2")
+
+    if selected_group:
+        lessons = db_manager.get_daily_schedule(group_name=selected_group, day=day, week_type=week_type)
+        if lessons:
+            schedule = "\n".join([f"{lesson.pair.start_time} - {lesson.subject}" for lesson in lessons])
+            await message.answer(schedule)
+        else:
+            await message.answer("Для этого дня расписания не найдено.")
+    elif selected_teacher:
+        lessons = db_manager.get_teacher_schedule(teacher_name=selected_teacher, day=day, week_type=week_type)
+        if lessons:
+            schedule = "\n".join(
+                [f"{lesson.pair.start_time} - {lesson.group_name}: {lesson.subject}" for lesson in lessons])
+            await message.answer(schedule)
+        else:
+            await message.answer("Для этого дня расписания преподавателя не найдено.")
 
 
-# Обработчик для показа полного расписания
-@dp.message(F.text == "Показать всю неделю")
-async def handle_full_week(message: Message):
-    global selected_group
-    # Показать расписание на всю неделю
-    full_schedule = extract_week_schedule(selected_group)
-    await message.answer(full_schedule, parse_mode="MarkdownV2")
+# Обработка неверного ввода
+@dp.message()
+async def handle_invalid_input(message: Message):
+    await message.answer(
+        "Неверный ввод. Пожалуйста, следуйте инструкциям и попробуйте снова."
+    )
 
-# Обработчик кнопки "Назад" для возврата на предыдущие шаги
-@dp.message(F.text == "Назад")
-async def go_back(message: Message):
-    global current_step, previous_step
-    # Переходим на предыдущий шаг
-    if current_step == "day_selection":
-        current_step = "week_selection"
-        await message.answer("Выбери тип недели:", reply_markup=week_type_keyboard)
-    elif current_step == "week_selection":
-        current_step = "group_selection"
-        await message.answer("Выбери свою группу:", reply_markup=group_keyboard)
-    elif current_step == "group_selection":
-        current_step = "start"
-        await message.answer("Привет! Нажми 'Выбери группу', чтобы продолжить:", reply_markup=start_keyboard)
 
-        # Запуск бота
+# Запуск обновления расписания
+async def update_schedule():
+    parse_timetables(db_manager, SOURCE_DIR)
+
+
 async def main():
-    # Загружаем данные расписания при старте/парсим
-
-    # parse_timetables.parse_timetables("timetables")
-
+    await update_schedule()
     await dp.start_polling(bot)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
