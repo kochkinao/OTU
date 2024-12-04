@@ -1,20 +1,23 @@
-import os
 import asyncio
+
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
-from aiogram.filters import Command
 from aiogram import F
+from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.utils.chat_action import ChatActionSender
 from dotenv import load_dotenv
+
 from database.db_manager import DbManager
-from lesson_parser import parse_lesson
-from parse_timetables import parse_timetables
-from settings import DB_URL, SOURCE_DIR
+from settings import DB_URL, TG_API_KEY
 
 load_dotenv()
 
 # Инициализация бота и базы данных
-bot = Bot(token=os.getenv("TG_API_KEY"))
-dp = Dispatcher()
+bot = Bot(token=TG_API_KEY)
+dp = Dispatcher(storage=MemoryStorage())
 db_manager = DbManager(DB_URL)
 
 # Глобальные переменные
@@ -22,48 +25,71 @@ selected_group = ""
 selected_teacher = ""
 week_type = ""
 
+class Form(StatesGroup):
+    is_student = State()
+    group = State()
+    fio = State()
+    is_even_week = State()
+
+choose_teacher_or_student_keyboard = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text='Студент'), KeyboardButton(text='Преподаватель')]], resize_keyboard=True
+)
+
 
 # Команда /start
-@dp.message(Command("start"))
-async def send_welcome(message: Message):
-    await message.answer(
-        "Привет! Введите 'группа' для поиска по группе или 'преподаватель' для поиска по преподавателю."
-    )
+@dp.message(CommandStart())
+async def send_welcome(message: Message, state: FSMContext):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        await asyncio.sleep(1)
+        await message.answer("Кто ты, воин?", reply_markup=choose_teacher_or_student_keyboard)
+    await state.set_state(Form.is_student)
 
 
 # Начальный выбор: группа или преподаватель
-@dp.message(F.text.in_(["группа", "преподаватель"]))
-async def initial_choice(message: Message):
-    choice = message.text.lower()
-    if choice == "группа":
-        await message.answer("Введите название вашей группы (например, АГС-22-1):")
-    elif choice == "преподаватель":
-        await message.answer("Введите фамилию преподавателя (например, Иванов):")
 
 
-# Обработка ввода группы или преподавателя
+@dp.message(F.text.in_(["Студент", "Преподаватель"], Form.is_student))
+async def initial_choice(message: Message, state: FSMContext):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        choice = message.text.lower()
+        if choice == "студент":
+            await state.update_data(is_student=True)
+            await message.answer("Введите название группы (например, АГС-22-1)", reply_markup=ReplyKeyboardRemove(remove_keyboard=True))
+            await state.set_state(Form.fio)
+        elif choice == "преподаватель":
+            await state.update_data(is_student=False)
+            await message.answer("Введите фамилию", reply_markup=ReplyKeyboardRemove(remove_keyboard=True))
+            await state.set_state(Form.group)
 
-@dp.message(lambda message: message.text and len(message.text) > 2)
-async def handle_input(message: Message):
-    global selected_group, selected_teacher
 
-    input_text = message.text.strip()
+@dp.message(F.text, Form.group)
+async def handle_group(message: Message, state: FSMContext):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        group = db_manager.find_group_by_name(message.text.upper())
+        if group:
+            await state.update_data(group_name=group.name)
+            await message.answer("За какую неделю хотите расписание?")
+            await state.set_state(Form.is_even_week)
+        else:
+            await message.answer("Нет такой группы, в названии ошибка!")
 
-    # Проверка: это группа или преподаватель
-    if db_manager.is_valid_group(input_text):
-        selected_group = input_text
-        await message.answer(
-            f"Группа {selected_group} выбрана. Теперь выберите тип недели (четная/нечетная):"
-        )
-    elif db_manager.is_valid_teacher(input_text):
-        selected_teacher = input_text
-        await message.answer(
-            f"Преподаватель {selected_teacher} выбран. Теперь выберите тип недели (четная/нечетная):"
-        )
-    else:
-        await message.answer(
-            "Неверный ввод. Убедитесь, что вы ввели корректное название группы или фамилию преподавателя. Попробуйте снова."
-        )
+@dp.message(F.text, Form.group)
+async def handle_fio(message: Message, state: FSMContext):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+        second_name = message.text.capitalize()
+        full_name = db_manager.find_teacher_names(second_name)
+        if full_name and len(full_name) == 1:
+            await state.update_data(full_name=full_name)
+            await message.answer("За какую неделю хотите расписание?")
+            await state.set_state(Form.is_even_week)
+        elif full_name:
+            await message.answer()
+
+        if gr:
+            await state.update_data(group_name=group.name)
+            await state.set_state(Form.is_even_week)
+        else:
+            await message.answer("Нет такой группы, в названии ошибка!")
 
 
 # Выбор типа недели
@@ -113,12 +139,12 @@ async def handle_invalid_input(message: Message):
 
 
 # Запуск обновления расписания
-async def update_schedule():
-    parse_timetables(db_manager, SOURCE_DIR)
+# async def update_schedule():
+#     parse_timetables(db_manager, SOURCE_DIR)
 
 
 async def main():
-    await update_schedule()
+    # update_schedule()
     await dp.start_polling(bot)
 
 
