@@ -5,8 +5,8 @@ load_dotenv()
 
 DB_USERNAME = 'postgres'
 DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_HOST = 'localhost'
-DB_PORT = 7546
+DB_HOST = 'postgres_db'
+DB_PORT = 5432
 DB_NAME = 'schedule'
 DB_URL = f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 

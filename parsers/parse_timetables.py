@@ -10,7 +10,7 @@ from settings import SOURCE_DIR, DB_URL
 from parsers.timetable_parser import TimetablePDFParser
 from weekdays import get_week_day_number
 
-TIMETABLE_DIR = 'timetables'
+TIMETABLE_DIR = '../timetables'
 
 
 def list_files_in_directory(directory_path):
